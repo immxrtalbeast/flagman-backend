@@ -1,0 +1,5 @@
+env: "local"
+storage_path: "./storage/dcp.db"
+token_ttl: 1h
+app_secret: "FLAGMAN_HACKAHTON"
+db_url : "postgresql://postgres:TTK_ZOMBIE@db.nrcxwtnzqivegpqkjtue.supabase.co:5432/postgres"
