@@ -12,7 +12,7 @@ func NewToken(user *domain.User, duration time.Duration, secret string) (string,
 
 	claims := token.Claims.(jwt.MapClaims)
 	claims["uid"] = user.ID
-	claims["login"] = user.Email
+	claims["email"] = user.Email
 	claims["fullname"] = user.FullName
 	claims["exp"] = time.Now().Add(duration).Unix()
 
@@ -21,4 +21,18 @@ func NewToken(user *domain.User, duration time.Duration, secret string) (string,
 		return "", nil
 	}
 	return tokenString, nil
+}
+
+func IdFromToken(tokenString string, secret string) (uint, error) {
+	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		if id, exists := claims["uid"].(float64); exists {
+			return uint(id), nil
+		}
+	}
+
+	return 0, err
 }

@@ -3,19 +3,22 @@ package controller
 import (
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
+	"github.com/immxrtalbeast/flagman-backend/internal/lib"
 )
 
 type UserController struct {
-	interactor domain.UserInteractor
-	tokenTTL   time.Duration
+	interactor  domain.UserInteractor
+	tokenTTL    time.Duration
+	tokenSecret string
 }
 
-func NewUserController(interactor domain.UserInteractor, tokenTTL time.Duration) *UserController {
-	return &UserController{interactor: interactor, tokenTTL: tokenTTL}
+func NewUserController(interactor domain.UserInteractor, tokenTTL time.Duration, tokenSecret string) *UserController {
+	return &UserController{interactor: interactor, tokenTTL: tokenTTL, tokenSecret: tokenSecret}
 }
 
 func (c *UserController) Register(ctx *gin.Context) {
@@ -74,7 +77,8 @@ func (c *UserController) Register(ctx *gin.Context) {
 	}
 
 	// Если все проверки пройдены
-	if err := c.interactor.CreateUser(ctx, req.FullName, req.Email, req.PhoneNumber, req.Pass); err != nil {
+	id, err := c.interactor.CreateUser(ctx, req.FullName, req.Email, req.PhoneNumber, req.Pass)
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to create user",
 			"details": err.Error(),
@@ -99,7 +103,24 @@ func (c *UserController) Register(ctx *gin.Context) {
 		true,                      // Secure (использовать true в production для HTTPS)
 		true,                      // HttpOnly
 	)
-	ctx.JSON(http.StatusOK, gin.H{})
+
+	userIDStr := strconv.FormatUint(uint64(id), 10)
+
+	// Устанавливаем куку
+	ctx.SetCookie(
+		"user_id",
+		userIDStr,
+		int(c.tokenTTL.Seconds()),
+		"/",
+		"",
+		true,
+		false, // HttpOnly=false чтобы клиент мог читать JS
+	)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "user created",
+	})
+
 }
 
 func (c *UserController) Login(ctx *gin.Context) {
@@ -124,8 +145,71 @@ func (c *UserController) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"token": token,
-	})
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(
+		"jwt",                     // Имя куки
+		token,                     // Значение токена
+		int(c.tokenTTL.Seconds()), // Макс возраст в секундах
+		"/",                       // Путь
+		"",                        // Домен (пусто для текущего домена)
+		true,                      // Secure (использовать true в production для HTTPS)
+		false,                     // HttpOnly
+	)
+	id, err := lib.IdFromToken(token, c.tokenSecret)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+	}
+	userIDStr := strconv.FormatUint(uint64(id), 10)
+	ctx.SetCookie(
+		"user_id",
+		userIDStr,
+		int(c.tokenTTL.Seconds()),
+		"/",
+		"",
+		true,
+		false, // HttpOnly=false чтобы клиент мог читать JS
+	)
 
+	ctx.JSON(http.StatusOK, gin.H{})
+}
+
+func (c *UserController) User(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	if idStr == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "missing article ID"})
+		return
+	}
+	id, _ := strconv.Atoi(idStr)
+	user, err := c.interactor.User(ctx, uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get user",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	type UserResponse struct {
+		ID            uint        `json:"ID"`
+		FullName      string      `json:"FullName"`
+		Email         string      `json:"Email"`
+		PhoneNumber   string      `json:"PhoneNumber"`
+		CreatedAt     time.Time   `json:"CreatedAt"`
+		Organizations interface{} `json:"Organizations"`
+		Roles         interface{} `json:"Roles"`
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"user": UserResponse{
+			ID:            user.ID,
+			FullName:      user.FullName,
+			Email:         user.Email,
+			PhoneNumber:   user.PhoneNumber,
+			CreatedAt:     user.CreatedAt,
+			Organizations: user.Organizations,
+			Roles:         user.Roles,
+		},
+	})
 }

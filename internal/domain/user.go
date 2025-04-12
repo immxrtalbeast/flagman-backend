@@ -43,21 +43,24 @@ type User struct {
 	CreatedAt     time.Time
 	Organizations []Organization `gorm:"many2many:user_organizations;"`
 	Roles         []Role         ` gorm:"type:text[];many2many:user_roles;"`
+
+	SentDocuments     []Document          `gorm:"foreignKey:SenderID;references:ID"` // Документы, отправленные пользователем
+	ReceivedDocuments []DocumentRecipient `gorm:"foreignKey:UserID"`                 // Документы, полученные для подписи
 }
 
 type UserInteractor interface {
-	CreateUser(ctx context.Context, fullname string, email string, phonenumber string, pass string) error
+	CreateUser(ctx context.Context, fullname string, email string, phonenumber string, pass string) (uint, error)
 	Login(ctx context.Context, email string, passhash string) (string, error)
-	// User(ctx context.Context, id string) (*User, error)
+	User(ctx context.Context, id uint) (*User, error)
 	// Users(ctx context.Context, page int, limit int) ([]*User, error)
 	// UpdateUser(ctx context.Context, id string, name string, login string, passhash string, role Role) error
 	// DeleteUser(ctx context.Context, id string) error
 }
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, user *User) error
+	CreateUser(ctx context.Context, user *User) (uint, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
-	// User(ctx context.Context, id string) (*User, error)
+	User(ctx context.Context, id uint) (*User, error)
 	// UserByLogin(ctx context.Context, login string) (*User, error)
 	// Users(ctx context.Context, page int, limit int) ([]*User, error)
 	// UpdateUser(ctx context.Context, user *User) error

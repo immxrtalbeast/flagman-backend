@@ -9,10 +9,12 @@ import (
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
 	"github.com/immxrtalbeast/flagman-backend/internal/lib"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrNotFound           = errors.New("user not found")
 )
 
 type UserInteractor struct {
@@ -29,11 +31,11 @@ func NewUserInteractor(userRepo domain.UserRepository, tokenTTL time.Duration, a
 	}
 }
 
-func (ui *UserInteractor) CreateUser(ctx context.Context, fullname string, email string, phonenumber string, pass string) error {
+func (ui *UserInteractor) CreateUser(ctx context.Context, fullname string, email string, phonenumber string, pass string) (uint, error) {
 	const op = "uc.user.create"
 	passHash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	user := domain.User{
 		FullName:    fullname,
@@ -41,10 +43,11 @@ func (ui *UserInteractor) CreateUser(ctx context.Context, fullname string, email
 		PhoneNumber: phonenumber,
 		PassHash:    passHash,
 	}
-	if err := ui.userRepo.CreateUser(ctx, &user); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	id, err := ui.userRepo.CreateUser(ctx, &user)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
-	return nil
+	return id, nil
 }
 
 func (ui *UserInteractor) Login(ctx context.Context, email string, passhash string) (string, error) {
@@ -58,4 +61,15 @@ func (ui *UserInteractor) Login(ctx context.Context, email string, passhash stri
 	}
 	return lib.NewToken(user, ui.tokenTTL, ui.appSecret)
 
+}
+
+func (ui *UserInteractor) User(ctx context.Context, id uint) (*domain.User, error) {
+	const op = "uc.user.get"
+	user, err := ui.userRepo.User(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+	}
+	return user, nil
 }

@@ -1,2 +1,3 @@
-config.yaml
+local.yaml
+./config/local.yaml
 .env
