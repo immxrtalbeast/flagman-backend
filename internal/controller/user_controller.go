@@ -213,3 +213,28 @@ func (c *UserController) User(ctx *gin.Context) {
 		},
 	})
 }
+func (c *UserController) Users(ctx *gin.Context) {
+	usersDB, err := c.interactor.Users(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get users",
+			"details": err.Error(),
+		})
+		return
+	}
+	type UsersResponse struct {
+		ID       uint   `json:"ID"`
+		FullName string `json:"FullName"`
+	}
+	var users []UsersResponse
+	for _, user := range usersDB {
+		user := UsersResponse{
+			ID:       user.ID,
+			FullName: user.FullName,
+		}
+		users = append(users, user)
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"data": users,
+	})
+}

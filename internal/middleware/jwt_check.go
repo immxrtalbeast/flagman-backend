@@ -12,17 +12,16 @@ import (
 func AuthMiddleware(appSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if authHeader == "" {
 			var err error
-			authHeader, err = c.Cookie("jwt")
+			tokenString, err = c.Cookie("jwt")
 			if err != nil {
 				c.AbortWithStatusJSON(401, gin.H{"error": "JWT required"})
 				return
 			}
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
 			c.AbortWithStatusJSON(401, gin.H{"error": "Bearer token required"})
 			return
@@ -36,7 +35,7 @@ func AuthMiddleware(appSecret string) gin.HandlerFunc {
 		})
 
 		if err != nil {
-			c.AbortWithStatusJSON(401, gin.H{"error": "Invalid token: " + err.Error()})
+			c.AbortWithStatusJSON(401, gin.H{"error": "Invalid token: " + tokenString})
 			return
 		}
 

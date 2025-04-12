@@ -9,10 +9,11 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/immxrtalbeast/flagman-backend/internal/config"
-	"github.com/immxrtalbeast/flagman-backend/internal/config/controller"
+	"github.com/immxrtalbeast/flagman-backend/internal/controller"
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
 	"github.com/immxrtalbeast/flagman-backend/internal/middleware"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/document"
+	"github.com/immxrtalbeast/flagman-backend/internal/usecase/recipient"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/user"
 	"github.com/immxrtalbeast/flagman-backend/storage/supabase"
 	"github.com/joho/godotenv"
@@ -21,6 +22,7 @@ import (
 )
 
 func main() {
+	//TODO: заменить ручку users на юзеров из своей орги
 	cfg := config.MustLoad()
 	log := setupLogger()
 	log.Info("starting application", slog.Any("config", cfg))
@@ -32,12 +34,12 @@ func main() {
 	password := os.Getenv("password")
 	dbname := os.Getenv("dbname")
 	port := os.Getenv("port")
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=require pgbouncer=true connect_timeout=10 pool_mode=transaction statement_cache_mode=describe",
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=require pgbouncer=true connect_timeout=10 pool_mode=transaction statement_cache_mode=disable",
 		host, userDB, password, dbname, port)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		PrepareStmt:            false, // Отключаем подготовленные выражения
+		PrepareStmt:            false,
 		SkipDefaultTransaction: true,
-		ConnPool:               nil,
 	})
 	if err != nil {
 		panic("failed to connect database")
@@ -50,10 +52,12 @@ func main() {
 	usrRepo := supabase.NewUserRepository(db)
 	userINT := user.NewUserInteractor(usrRepo, cfg.TokenTTL, cfg.AppSecret)
 	userController := controller.NewUserController(userINT, cfg.TokenTTL, cfg.AppSecret)
-
+	recipientRepo := supabase.NewDocumentRecipientRepository(db)
+	recipientINT := recipient.NewDocumentRecipientInteractor(recipientRepo, usrRepo, os.Getenv("secret_salt"))
+	recipientController := controller.NewRecipientController(recipientINT)
 	documentRepo := supabase.NewDocumentRepository(db)
 	documentINT := document.NewDocumentInteractor(documentRepo, usrRepo)
-	documentController := controller.NewDocumentController(documentINT)
+	documentController := controller.NewDocumentController(documentINT, recipientRepo)
 
 	authMiddleware := middleware.AuthMiddleware(cfg.AppSecret)
 
@@ -88,11 +92,16 @@ func main() {
 		document.Use(authMiddleware)
 		{
 			document.POST("/create", documentController.CreateDocument)
+			document.GET("/list", recipientController.ListUserDocuments)
+			document.POST("/reject/:id", recipientController.RejectDocument)
+			document.POST("/sign/:id", recipientController.SignDocument)
+
 		}
 		user := api.Group("/user")
 		user.Use(authMiddleware)
 		{
 			user.GET("/:id", userController.User)
+			user.GET("/all", userController.Users)
 		}
 	}
 	router.Run(":8080")

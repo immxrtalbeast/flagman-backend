@@ -20,16 +20,15 @@ type Document struct {
 	Recipients []DocumentRecipient `gorm:"foreignKey:DocumentID"` // Получатели
 }
 
-// Получатель документа (связь между документом и пользователем)
 type DocumentRecipient struct {
-	ID         uint       `gorm:"primaryKey;autoIncrement"`
-	DocumentID uint       // Ссылка на документ
-	UserID     uint       // ID получателя
-	Status     string     `gorm:"default:'pending'"` // Статус для получателя: "pending", "signed", "rejected"
-	Signature  string     // Уникальная подпись (хеш телефона + соль)
-	SignedAt   *time.Time // Время подписания
+	ID         uint     `gorm:"primaryKey;autoIncrement"`
+	DocumentID uint     `gorm:"index"`
+	Document   Document `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	UserID     uint     `gorm:"index"`
+	Status     string   `gorm:"default:'pending'"`
+	Signature  string
+	SignedAt   *time.Time
 }
-
 type DocumentRepository interface {
 	Create(ctx context.Context, document *Document) error
 	// FindByID(id uuid.UUID) (*Document, error)
@@ -48,19 +47,22 @@ type DocumentInteractor interface {
 	// GetDocumentRecipients(documentID uuid.UUID) ([]DocumentRecipient, error)
 }
 
-// type DocumentRecipientRepository interface {
-// 	Create(recipient *DocumentRecipient) error
-// 	FindByID(id uuid.UUID) (*DocumentRecipient, error)
-// 	Update(recipient *DocumentRecipient) error
-// 	Delete(id uuid.UUID) error
-// 	FindByDocument(documentID uuid.UUID) ([]DocumentRecipient, error)
-// 	FindByUser(userID uint) ([]DocumentRecipient, error)
-// }
+type DocumentRecipientRepository interface {
+	Create(recipient *DocumentRecipient) error
+	FindByID(id string) (*DocumentRecipient, error)
+	SignDocument(ctx context.Context, id string, userID uint, signature string) error
+	RejectDocument(ctx context.Context, id string, userID uint) error
+	ListUserDocuments(ctx context.Context, userID uint, status string) ([]DocumentRecipient, error)
+	// Update(recipient *DocumentRecipient) error
+	// Delete(id uuid.UUID) error
+	// FindByDocument(documentID uuid.UUID) ([]DocumentRecipient, error)
+	// FindByUser(userID uint) ([]DocumentRecipient, error)
+}
 
-// type DocumentRecipientUsecase interface {
-// 	SignDocument(recipientID uuid.UUID, signature string) error
-// 	RejectDocument(recipientID uuid.UUID) error
-// 	GetRecipient(recipientID uuid.UUID) (*DocumentRecipient, error)
-// 	ListUserDocuments(userID uint) ([]DocumentRecipient, error)
-// 	GetDocumentStatus(documentID uuid.UUID) (string, error)
-// }
+type DocumentRecipientInteractor interface {
+	SignDocument(ctx context.Context, recipientID string, userID uint) error
+	RejectDocument(ctx context.Context, id string, userID uint) error
+	// GetRecipient(recipientID uuid.UUID) (*DocumentRecipient, error)
+	ListUserDocuments(ctx context.Context, userID uint, status string) ([]DocumentRecipient, error)
+	// GetDocumentStatus(documentID uuid.UUID) (string, error)
+}

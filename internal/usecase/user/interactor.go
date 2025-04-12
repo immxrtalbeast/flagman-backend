@@ -69,7 +69,22 @@ func (ui *UserInteractor) User(ctx context.Context, id uint) (*domain.User, erro
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
+		} else {
+			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 	return user, nil
+}
+
+func (ui *UserInteractor) Users(ctx context.Context) ([]*domain.User, error) {
+	const op = "uc.user.get_all"
+	users, err := ui.userRepo.Users(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		} else {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+	return users, nil
 }
