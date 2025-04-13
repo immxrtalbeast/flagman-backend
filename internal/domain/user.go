@@ -2,37 +2,8 @@ package domain
 
 import (
 	"context"
-	"database/sql/driver"
-	"fmt"
 	"time"
 )
-
-type Role string
-
-const (
-	UserRole  Role = "USER"
-	AdminRole Role = "ADMIN"
-)
-
-// Реализуем интерфейс Scanner для чтения из БД
-func (r *Role) Scan(value interface{}) error {
-	if value == nil {
-		*r = ""
-		return nil
-	}
-
-	if v, ok := value.([]byte); ok {
-		*r = Role(string(v))
-		return nil
-	}
-
-	return fmt.Errorf("invalid role type: %T", value)
-}
-
-// Реализуем интерфейс Valuer для записи в БД
-func (r Role) Value() (driver.Value, error) {
-	return string(r), nil
-}
 
 type User struct {
 	ID          uint   `gorm:"primaryKey;autoIncrement"`
@@ -42,7 +13,6 @@ type User struct {
 	PassHash    []byte `gorm:"not null"`
 	CreatedAt   time.Time
 	Enterprises []Enterprise `gorm:"many2many:user_enterprises;"`
-	Roles       []Role       ` gorm:"type:text[];many2many:user_roles;"`
 
 	SentDocuments     []Document          `gorm:"foreignKey:SenderID;references:ID"` // Документы, отправленные пользователем
 	ReceivedDocuments []DocumentRecipient `gorm:"foreignKey:UserID"`                 // Документы, полученные для подписи
@@ -53,6 +23,7 @@ type UserInteractor interface {
 	Login(ctx context.Context, email string, passhash string) (string, error)
 	User(ctx context.Context, id uint) (*User, error)
 	Users(ctx context.Context) ([]*User, error)
+	// Users(ctx context.Context, enterprisesID []string) ([]*User, error)
 	// UpdateUser(ctx context.Context, id string, name string, login string, passhash string, role Role) error
 	// DeleteUser(ctx context.Context, id string) error
 }

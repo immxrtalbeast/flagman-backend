@@ -14,6 +14,7 @@ import (
 	"github.com/immxrtalbeast/flagman-backend/internal/middleware"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/document"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/enterprise"
+	"github.com/immxrtalbeast/flagman-backend/internal/usecase/notifications"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/recipient"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/user"
 	"github.com/immxrtalbeast/flagman-backend/storage/supabase"
@@ -40,7 +41,7 @@ func main() {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&domain.User{}, &domain.Enterprise{}, &domain.Department{}, &domain.Document{}, &domain.DocumentRecipient{})
+	db.AutoMigrate(&domain.User{}, &domain.Invitation{}, &domain.Enterprise{}, &domain.Document{}, &domain.DocumentRecipient{})
 	if err := db.Exec("DEALLOCATE ALL").Error; err != nil {
 		panic(err)
 	}
@@ -70,8 +71,12 @@ func main() {
 	userINT := user.NewUserInteractor(usrRepo, cfg.TokenTTL, cfg.AppSecret)
 	userController := controller.NewUserController(userINT, cfg.TokenTTL, cfg.AppSecret, redisClient)
 
+	notifRepo := supabase.NewNotificationRepository(db)
 	enterpriseRepo := supabase.NewEnterpriseRepository(db)
-	enterpriseINT := enterprise.NewEnterpriseInteractor(enterpriseRepo, usrRepo)
+	notifINT := notifications.NewNotificationInteractor(notifRepo, enterpriseRepo)
+	notifController := controller.NewNotificationController(notifINT)
+
+	enterpriseINT := enterprise.NewEnterpriseInteractor(enterpriseRepo, usrRepo, notifRepo)
 	enterpriseController := controller.NewEnterpriseController(enterpriseINT)
 
 	recipientRepo := supabase.NewDocumentRecipientRepository(db)
@@ -111,6 +116,14 @@ func main() {
 		{
 			enterprise.POST("/create", enterpriseController.CreateEnterprise)
 			enterprise.GET("/:id", enterpriseController.Enterprise)
+			enterprise.GET("/my", enterpriseController.EnterprisesByUserID)
+			enterprise.POST("/invite", enterpriseController.InviteUser)
+		}
+		notification := api.Group("/notification")
+		notification.Use(authMiddleware)
+		{
+			notification.GET("/my", notifController.MyNotifications)
+			notification.POST("/accept", notifController.AcceptInvite)
 		}
 		document := api.Group("/document")
 		document.Use(authMiddleware)
@@ -126,8 +139,9 @@ func main() {
 		user := api.Group("/user")
 		user.Use(authMiddleware)
 		{
+			// user.GET("/list", userController.Users)
 			user.GET("/:id", userController.User)
-			user.GET("/all", userController.Users)
+			user.GET("/all", userController.UsersAll)
 		}
 	}
 	router.Run(":8080")

@@ -261,11 +261,10 @@ func (c *UserController) User(ctx *gin.Context) {
 			PhoneNumber: user.PhoneNumber,
 			CreatedAt:   user.CreatedAt,
 			Enterprises: user.Enterprises,
-			Roles:       user.Roles,
 		},
 	})
 }
-func (c *UserController) Users(ctx *gin.Context) {
+func (c *UserController) UsersAll(ctx *gin.Context) {
 	usersDB, err := c.interactor.Users(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{

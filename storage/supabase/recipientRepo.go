@@ -26,7 +26,6 @@ func (r *DocumentRecipientRepository) Create(recipient *domain.DocumentRecipient
 	return nil
 }
 func (r *DocumentRecipientRepository) FindByID(id string) (*domain.DocumentRecipient, error) {
-	const op = "storage.documentrecipi.findID"
 	var recipient domain.DocumentRecipient
 	err := r.db.Where("id = ?", id).Preload("Document.Sender").First(&recipient).Error
 
@@ -34,7 +33,6 @@ func (r *DocumentRecipientRepository) FindByID(id string) (*domain.DocumentRecip
 }
 
 func (r *DocumentRecipientRepository) SignDocument(ctx context.Context, id string, userID uint, signature string) error {
-	const op = "storage.documentrecipi.sign"
 	var recipient domain.DocumentRecipient
 	r.db.Where("id = ? AND user_id = ?", id, userID).First(&recipient)
 	if recipient.Status != "pending" {
@@ -50,7 +48,6 @@ func (r *DocumentRecipientRepository) SignDocument(ctx context.Context, id strin
 	return err.Error
 }
 func (r *DocumentRecipientRepository) RejectDocument(ctx context.Context, id string, userID uint) error {
-	const op = "storage.documentrecipi.reject"
 	var recipient domain.DocumentRecipient
 	r.db.Where("id = ? AND user_id = ?", id, userID).First(&recipient)
 	if recipient.Status != "pending" {
@@ -66,7 +63,6 @@ func (r *DocumentRecipientRepository) RejectDocument(ctx context.Context, id str
 }
 
 func (r *DocumentRecipientRepository) ListUserDocuments(ctx context.Context, userID uint, status string) ([]domain.DocumentRecipient, error) {
-	const op = "storage.documentrecipi.list"
 	var documents []domain.DocumentRecipient
 	if status == "" {
 		err := r.db.Where("user_id = ?", userID).Preload("Document.Sender").WithContext(ctx).Find(&documents).Error

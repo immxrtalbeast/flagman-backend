@@ -55,3 +55,42 @@ func (c *EnterpriseController) Enterprise(ctx *gin.Context) {
 		"body": enterprise,
 	})
 }
+
+func (c *EnterpriseController) EnterprisesByUserID(ctx *gin.Context) {
+	userID, _ := ctx.Keys["userID"].(float64)
+	enterprises, err := c.interactor.GetEnterprisesByUserID(uint(userID))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed get enterprise", "details": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"body": enterprises,
+	})
+
+}
+
+func (c *EnterpriseController) InviteUser(ctx *gin.Context) {
+	type InviteUserRequest struct {
+		EnterpriseID uint   `json:"enterprise_id" binding:"required"`
+		Email        string `json:"email" binding:"required"`
+	}
+	var req InviteUserRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+	enterprise, err := c.interactor.EnterpriseByID(req.EnterpriseID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to get enterprise", "detail": err.Error()})
+		return
+	}
+	userID, _ := ctx.Keys["userID"].(float64)
+	invitation, err := c.interactor.InviteUser(uint(userID), req.Email, req.EnterpriseID, enterprise.Name)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to create invitation", "detail": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"body": invitation,
+	})
+}

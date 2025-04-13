@@ -2,6 +2,7 @@ package enterprise
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,12 +10,13 @@ import (
 )
 
 type EnterpriseInteractor struct {
-	entrRepo domain.EnterpriseRepository
-	usrRepo  domain.UserRepository
+	entrRepo  domain.EnterpriseRepository
+	usrRepo   domain.UserRepository
+	notifRepo domain.NotificationRepository
 }
 
-func NewEnterpriseInteractor(entrRepo domain.EnterpriseRepository, usrRepo domain.UserRepository) *EnterpriseInteractor {
-	return &EnterpriseInteractor{entrRepo: entrRepo, usrRepo: usrRepo}
+func NewEnterpriseInteractor(entrRepo domain.EnterpriseRepository, usrRepo domain.UserRepository, notifRepo domain.NotificationRepository) *EnterpriseInteractor {
+	return &EnterpriseInteractor{entrRepo: entrRepo, usrRepo: usrRepo, notifRepo: notifRepo}
 }
 
 func (ent *EnterpriseInteractor) CreateEnterprise(userID uint, name string, description string) (*domain.Enterprise, error) {
@@ -50,4 +52,39 @@ func (ent *EnterpriseInteractor) EnterpriseByID(id uint) (*domain.Enterprise, er
 	}
 	return enterprise, nil
 
+}
+
+func (ent *EnterpriseInteractor) GetEnterprisesByUserID(userID uint) ([]domain.Enterprise, error) {
+	const op = "uc.enterprise.byUserID"
+	enterprises, err := ent.entrRepo.GetEnterprisesByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return enterprises, nil
+}
+
+func (ent *EnterpriseInteractor) InviteUser(senderID uint, userEmail string, enterpriseID uint, enterpriseName string) (*domain.Invitation, error) {
+	const op = "uc.enterprise.invite"
+	enterpise, err := ent.entrRepo.EnterpriseByID(enterpriseID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if enterpise.CreatorID != senderID {
+		return nil, errors.New("недостаточно прав для отправки приглашений")
+	}
+	receiver, err := ent.usrRepo.FindByEmail(context.Background(), userEmail)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	invite := domain.Invitation{
+		Email:          userEmail,
+		EnterpriseID:   enterpriseID,
+		CreatedBy:      senderID,
+		EnterpriseName: enterpriseName,
+		ReceiverID:     receiver.ID,
+	}
+	if err = ent.notifRepo.CreateInvitation(context.Background(), invite); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &invite, nil
 }
