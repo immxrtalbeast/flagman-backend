@@ -23,6 +23,7 @@ type UserInteractor interface {
 	Login(ctx context.Context, email string, passhash string) (string, error)
 	User(ctx context.Context, id uint) (*User, error)
 	Users(ctx context.Context) ([]*User, error)
+	UsersEntr(ctx context.Context, entrID string) ([]User, error)
 	// Users(ctx context.Context, enterprisesID []string) ([]*User, error)
 	// UpdateUser(ctx context.Context, id string, name string, login string, passhash string, role Role) error
 	// DeleteUser(ctx context.Context, id string) error
@@ -32,7 +33,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *User) (uint, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	User(ctx context.Context, id uint) (*User, error)
-	// UserByLogin(ctx context.Context, login string) (*User, error)
+	GetUsersByEnterpriseID(enterpriseID string) ([]User, error)
 	Users(ctx context.Context) ([]*User, error)
 	UpdateUser(ctx context.Context, user *User) error
 	// DeleteUser(ctx context.Context, id string) error

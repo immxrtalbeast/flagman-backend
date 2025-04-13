@@ -94,6 +94,7 @@ func main() {
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{
+		"http://109.237.99.9:3000",
 		"http://localhost:3000",
 	}
 	config.AllowCredentials = true
@@ -104,6 +105,7 @@ func main() {
 		"Accept",
 	}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+	config.ExposeHeaders = []string{"Set-Cookie"}
 	router.Use(cors.New(config))
 	api := router.Group("/api/v1")
 	{
@@ -139,7 +141,7 @@ func main() {
 		user := api.Group("/user")
 		user.Use(authMiddleware)
 		{
-			// user.GET("/list", userController.Users)
+			user.GET("/list", userController.Users)
 			user.GET("/:id", userController.User)
 			user.GET("/all", userController.UsersAll)
 		}

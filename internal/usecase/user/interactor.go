@@ -88,3 +88,16 @@ func (ui *UserInteractor) Users(ctx context.Context) ([]*domain.User, error) {
 	}
 	return users, nil
 }
+
+func (ui *UserInteractor) UsersEntr(ctx context.Context, entrID string) ([]domain.User, error) {
+	const op = "uc.user.get_query"
+	users, err := ui.userRepo.GetUsersByEnterpriseID(entrID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		} else {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+	return users, nil
+}

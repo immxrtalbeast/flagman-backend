@@ -40,10 +40,9 @@ func (r *DocumentRecipientRepository) SignDocument(ctx context.Context, id strin
 	}
 	now := time.Now()
 	err := r.db.Model(&recipient).Updates(map[string]interface{}{
-		"status":     "signed",
-		"signature":  signature,
-		"signed_at":  now,
-		"updated_at": now,
+		"status":    "signed",
+		"signature": signature,
+		"signed_at": now,
 	})
 	return err.Error
 }

@@ -2,6 +2,7 @@ package supabase
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
 	"gorm.io/gorm"
@@ -42,4 +43,18 @@ func (r *UserRepository) Users(ctx context.Context) ([]*domain.User, error) {
 
 func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
+}
+
+func (r *UserRepository) GetUsersByEnterpriseID(enterpriseID string) ([]domain.User, error) {
+	var users []domain.User
+	err := r.db.
+		Joins("JOIN user_enterprises ON user_enterprises.user_id = users.id").
+		Where("user_enterprises.enterprise_id = ?", enterpriseID).
+		Find(&users).
+		Error
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения пользователей: %v", err)
+	}
+
+	return users, err
 }

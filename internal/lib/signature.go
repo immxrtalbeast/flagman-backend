@@ -11,3 +11,5 @@ func NewSignature(user *domain.User, salt string) string {
 	hash := sha256.Sum256([]byte(user.PhoneNumber + salt))
 	return hex.EncodeToString(hash[:])
 }
+
+// pwa, s3, redis, зачистка токенов, email + redis

@@ -103,8 +103,8 @@ func (c *UserController) Register(ctx *gin.Context) {
 		int(c.tokenTTL.Seconds()), // Макс возраст в секундах
 		"/",                       // Путь
 		"",                        // Домен (пусто для текущего домена)
-		true,                      // Secure (использовать true в production для HTTPS)
-		true,                      // HttpOnly
+		false,                     // Secure (использовать true в production для HTTPS)
+		false,                     // HttpOnly
 	)
 
 	userIDStr := strconv.FormatUint(uint64(id), 10)
@@ -116,7 +116,7 @@ func (c *UserController) Register(ctx *gin.Context) {
 		int(c.tokenTTL.Seconds()),
 		"/",
 		"",
-		true,
+		false,
 		false, // HttpOnly=false чтобы клиент мог читать JS
 	)
 
@@ -155,7 +155,7 @@ func (c *UserController) Login(ctx *gin.Context) {
 		int(c.tokenTTL.Seconds()), // Макс возраст в секундах
 		"/",                       // Путь
 		"",                        // Домен (пусто для текущего домена)
-		true,                      // Secure (использовать true в production для HTTPS)
+		false,                     // Secure (использовать true в production для HTTPS)
 		false,                     // HttpOnly
 	)
 	id, err := lib.IdFromToken(token, c.tokenSecret)
@@ -171,7 +171,7 @@ func (c *UserController) Login(ctx *gin.Context) {
 		int(c.tokenTTL.Seconds()),
 		"/",
 		"",
-		true,
+		false,
 		false, // HttpOnly=false чтобы клиент мог читать JS
 	)
 
@@ -270,6 +270,33 @@ func (c *UserController) UsersAll(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to get users",
 			"details": err.Error(),
+		})
+		return
+	}
+	type UsersResponse struct {
+		ID       uint   `json:"ID"`
+		FullName string `json:"FullName"`
+	}
+	var users []UsersResponse
+	for _, user := range usersDB {
+		user := UsersResponse{
+			ID:       user.ID,
+			FullName: user.FullName,
+		}
+		users = append(users, user)
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"data": users,
+	})
+}
+
+func (c *UserController) Users(ctx *gin.Context) {
+	enterpriseID := ctx.Query("entrID")
+	usersDB, err := c.interactor.UsersEntr(ctx, enterpriseID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to get users",
+			"details": enterpriseID,
 		})
 		return
 	}

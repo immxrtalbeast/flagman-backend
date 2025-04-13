@@ -42,7 +42,6 @@ func (c *DocumentController) CreateDocument(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file type"})
 		return
 	}
-	// 3. Сохранение файла временно
 	tempPath := fmt.Sprintf("/tmp/%s", file.Filename)
 	if err := ctx.SaveUploadedFile(file, tempPath); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file", "details": err.Error()})
