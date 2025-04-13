@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - flagman-network
+  flagman-back:
+   #build: .
+    ports:
+      - "8080:8080"
+    image: c0dys/flagman-back:latest
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CONFIG_PATH=/app/config/local.yaml
+      - EmailService=http://mail-service:8081/mail/send
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - flagman-network
+
+networks:
+  flagman-network:
+    driver: bridge

@@ -28,7 +28,7 @@ func (r *DocumentRecipientRepository) Create(recipient *domain.DocumentRecipient
 func (r *DocumentRecipientRepository) FindByID(id string) (*domain.DocumentRecipient, error) {
 	const op = "storage.documentrecipi.findID"
 	var recipient domain.DocumentRecipient
-	err := r.db.Where("id = ?", id).First(&recipient).Error
+	err := r.db.Where("id = ?", id).Preload("Document.Sender").First(&recipient).Error
 
 	return &recipient, err
 }
@@ -42,9 +42,10 @@ func (r *DocumentRecipientRepository) SignDocument(ctx context.Context, id strin
 	}
 	now := time.Now()
 	err := r.db.Model(&recipient).Updates(map[string]interface{}{
-		"status":    "signed",
-		"signature": signature,
-		"signed_at": now,
+		"status":     "signed",
+		"signature":  signature,
+		"signed_at":  now,
+		"updated_at": now,
 	})
 	return err.Error
 }
@@ -57,8 +58,9 @@ func (r *DocumentRecipientRepository) RejectDocument(ctx context.Context, id str
 	}
 	now := time.Now()
 	err := r.db.Model(&recipient).Updates(map[string]interface{}{
-		"status":    "rejected",
-		"signed_at": now,
+		"status":     "rejected",
+		"signed_at":  now,
+		"updated_at": now,
 	})
 	return err.Error
 }

@@ -30,7 +30,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain
 
 func (r *UserRepository) User(ctx context.Context, id uint) (*domain.User, error) {
 	var user domain.User
-	err := r.db.Where("id = ?", id).First(&user).Error
+	err := r.db.Preload("Enterprises").Where("id = ?", id).First(&user).Error
 	return &user, err
 }
 
@@ -38,4 +38,8 @@ func (r *UserRepository) Users(ctx context.Context) ([]*domain.User, error) {
 	var users []*domain.User
 	err := r.db.WithContext(ctx).Find(&users).Error
 	return users, err
+}
+
+func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
 }

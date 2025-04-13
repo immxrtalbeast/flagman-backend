@@ -3,4 +3,3 @@ storage_path: "./storage/dcp.db"
 token_ttl: 24h
 app_secret: "FLAGMAN_HACKAHTON"
 db_url : "postgresql://postgres:TTK_ZOMBIE@db.nrcxwtnzqivegpqkjtue.supabase.co:5432/postgres"
-secret_salt: "FLAGMAN_SECRET_SALT"

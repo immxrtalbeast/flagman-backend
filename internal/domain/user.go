@@ -35,14 +35,14 @@ func (r Role) Value() (driver.Value, error) {
 }
 
 type User struct {
-	ID            uint   `gorm:"primaryKey;autoIncrement"`
-	FullName      string `gorm:"unique;not null"`
-	Email         string `gorm:"unique;not null"`
-	PhoneNumber   string `gorm:"unique;not null"`
-	PassHash      []byte `gorm:"not null"`
-	CreatedAt     time.Time
-	Organizations []Organization `gorm:"many2many:user_organizations;"`
-	Roles         []Role         ` gorm:"type:text[];many2many:user_roles;"`
+	ID          uint   `gorm:"primaryKey;autoIncrement"`
+	FullName    string `gorm:"unique;not null"`
+	Email       string `gorm:"unique;not null"`
+	PhoneNumber string `gorm:"unique;not null"`
+	PassHash    []byte `gorm:"not null"`
+	CreatedAt   time.Time
+	Enterprises []Enterprise `gorm:"many2many:user_enterprises;"`
+	Roles       []Role       ` gorm:"type:text[];many2many:user_roles;"`
 
 	SentDocuments     []Document          `gorm:"foreignKey:SenderID;references:ID"` // Документы, отправленные пользователем
 	ReceivedDocuments []DocumentRecipient `gorm:"foreignKey:UserID"`                 // Документы, полученные для подписи
@@ -63,7 +63,7 @@ type UserRepository interface {
 	User(ctx context.Context, id uint) (*User, error)
 	// UserByLogin(ctx context.Context, login string) (*User, error)
 	Users(ctx context.Context) ([]*User, error)
-	// UpdateUser(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
 	// DeleteUser(ctx context.Context, id string) error
 	// UpdateUserPassword(ctx context.Context, passHash []byte) error
 }

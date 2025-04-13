@@ -31,7 +31,7 @@ type DocumentRecipient struct {
 }
 type DocumentRepository interface {
 	Create(ctx context.Context, document *Document) error
-	// FindByID(id uuid.UUID) (*Document, error)
+	DocumentByID(ctx context.Context, id uint) (*Document, error)
 	// Update(document *Document) error
 	// Delete(id uuid.UUID) error
 	// FindBySender(senderID uint) ([]Document, error)
@@ -39,6 +39,7 @@ type DocumentRepository interface {
 
 type DocumentInteractor interface {
 	CreateDocument(ctx context.Context, senderID uint, title, filePath string) (*Document, error)
+	DocumentByID(ctx context.Context, id uint) (*Document, error)
 	// SendDocument(documentID uuid.UUID, recipientIDs []uint) error
 	// GetDocument(documentID uuid.UUID) (*Document, error)
 	// UpdateDocument(document *Document) error

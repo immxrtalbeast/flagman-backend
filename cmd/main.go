@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	"github.com/gin-contrib/cors"
@@ -13,15 +13,18 @@ import (
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
 	"github.com/immxrtalbeast/flagman-backend/internal/middleware"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/document"
+	"github.com/immxrtalbeast/flagman-backend/internal/usecase/enterprise"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/recipient"
 	"github.com/immxrtalbeast/flagman-backend/internal/usecase/user"
 	"github.com/immxrtalbeast/flagman-backend/storage/supabase"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func main() {
+
 	//TODO: заменить ручку users на юзеров из своей орги
 	cfg := config.MustLoad()
 	log := setupLogger()
@@ -29,37 +32,57 @@ func main() {
 	if err := godotenv.Load(".env"); err != nil {
 		panic(err)
 	}
-	host := os.Getenv("host")
-	userDB := os.Getenv("user")
 	password := os.Getenv("password")
-	dbname := os.Getenv("dbname")
-	port := os.Getenv("port")
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=require pgbouncer=true connect_timeout=10 pool_mode=transaction statement_cache_mode=disable",
-		host, userDB, password, dbname, port)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		PrepareStmt:            false,
-		SkipDefaultTransaction: true,
-	})
+
+	dsn := fmt.Sprintf("postgresql://postgres.nrcxwtnzqivegpqkjtue:%s@aws-0-eu-north-1.pooler.supabase.com:5432/postgres", password)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&domain.User{}, &domain.Organization{}, &domain.Department{}, &domain.Document{}, &domain.DocumentRecipient{})
+	db.AutoMigrate(&domain.User{}, &domain.Enterprise{}, &domain.Department{}, &domain.Document{}, &domain.DocumentRecipient{})
 	if err := db.Exec("DEALLOCATE ALL").Error; err != nil {
 		panic(err)
 	}
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "redis" // значение по умолчанию
+	}
 
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379" // значение по умолчанию
+	}
+
+	var redisClient *redis.Client
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     redisHost + ":" + redisPort,
+		Password: "", // Если используете пароль
+		DB:       0,
+	})
+	ctx := context.Background()
+	pong, err := redisClient.Ping(ctx).Result()
+	if err != nil {
+		panic(fmt.Sprintf("Redis connection failed: %v", err))
+	}
+	fmt.Println("Redis connected:", pong)
 	usrRepo := supabase.NewUserRepository(db)
 	userINT := user.NewUserInteractor(usrRepo, cfg.TokenTTL, cfg.AppSecret)
-	userController := controller.NewUserController(userINT, cfg.TokenTTL, cfg.AppSecret)
+	userController := controller.NewUserController(userINT, cfg.TokenTTL, cfg.AppSecret, redisClient)
+
+	enterpriseRepo := supabase.NewEnterpriseRepository(db)
+	enterpriseINT := enterprise.NewEnterpriseInteractor(enterpriseRepo, usrRepo)
+	enterpriseController := controller.NewEnterpriseController(enterpriseINT)
+
 	recipientRepo := supabase.NewDocumentRecipientRepository(db)
 	recipientINT := recipient.NewDocumentRecipientInteractor(recipientRepo, usrRepo, os.Getenv("secret_salt"))
-	recipientController := controller.NewRecipientController(recipientINT)
+	recipientController := controller.NewRecipientController(recipientINT, recipientRepo, redisClient, usrRepo, os.Getenv("EmailService"))
+
 	documentRepo := supabase.NewDocumentRepository(db)
 	documentINT := document.NewDocumentInteractor(documentRepo, usrRepo)
 	documentController := controller.NewDocumentController(documentINT, recipientRepo)
 
-	authMiddleware := middleware.AuthMiddleware(cfg.AppSecret)
+	authMiddleware := middleware.AuthMiddleware(cfg.AppSecret, redisClient)
 
 	// Настройка маршрутов
 	router := gin.Default()
@@ -81,12 +104,13 @@ func main() {
 	{
 		api.POST("/register", userController.Register)
 		api.POST("/login", userController.Login)
-		organization := api.Group("/organization")
-		organization.Use(authMiddleware)
+		api.POST("/logout", userController.Logout).Use(authMiddleware)
+
+		enterprise := api.Group("/enterprise")
+		enterprise.Use(authMiddleware)
 		{
-			organization.GET("/", func(ctx *gin.Context) {
-				ctx.JSON(http.StatusOK, gin.H{})
-			})
+			enterprise.POST("/create", enterpriseController.CreateEnterprise)
+			enterprise.GET("/:id", enterpriseController.Enterprise)
 		}
 		document := api.Group("/document")
 		document.Use(authMiddleware)
@@ -95,6 +119,8 @@ func main() {
 			document.GET("/list", recipientController.ListUserDocuments)
 			document.POST("/reject/:id", recipientController.RejectDocument)
 			document.POST("/sign/:id", recipientController.SignDocument)
+			document.POST("/sign/:id/request", recipientController.RequestToSign)
+			document.GET("/:id", recipientController.ByID)
 
 		}
 		user := api.Group("/user")

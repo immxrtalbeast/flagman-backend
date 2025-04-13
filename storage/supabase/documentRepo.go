@@ -24,3 +24,9 @@ func (r *DocumentRepository) Create(ctx context.Context, document *domain.Docume
 	}
 	return nil
 }
+
+func (r *DocumentRepository) DocumentByID(ctx context.Context, id uint) (*domain.Document, error) {
+	var document domain.Document
+	err := r.db.Where("id = ?", id).Preload("Sender").First(&document).Error
+	return &document, err
+}

@@ -37,3 +37,11 @@ func (di *DocumentInteractor) CreateDocument(ctx context.Context, senderID uint,
 	}
 	return &document, nil
 }
+func (di *DocumentInteractor) DocumentByID(ctx context.Context, id uint) (*domain.Document, error) {
+	const op = "uc.document.byID"
+	document, err := di.documentRepo.DocumentByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return document, nil
+}

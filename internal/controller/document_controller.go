@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/immxrtalbeast/flagman-backend/internal/domain"
@@ -86,4 +87,16 @@ func (c *DocumentController) CreateDocument(ctx *gin.Context) {
 		"recipients": recipients,
 	})
 
+}
+func (c *DocumentController) DocumentByID(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, _ := strconv.Atoi(idStr)
+	document, err := c.interactor.DocumentByID(ctx, uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed get document", "details": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"document": document,
+	})
 }
